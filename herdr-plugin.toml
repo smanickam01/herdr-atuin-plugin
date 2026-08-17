@@ -1,0 +1,20 @@
+id = "atuin.history-popup"
+name = "Atuin history popup"
+version = "0.1.0"
+min_herdr_version = "0.7.0"
+description = "Atuin history search helpers"
+platforms = [ "macos" ]
+
+[[actions]]
+id = "shell-history"
+title = "Shell history"
+contexts = ["workspace"]
+command = ["zsh", "herdr-atuin.sh"]
+
+[[keys.command]]
+key = "prefix+a"
+type = "popup"
+command = "herdr-atuin.sh"
+description = "Open Atuin history search and copy to clipboard"
+width = "80%"
+height = "80%"
