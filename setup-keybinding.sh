@@ -12,6 +12,9 @@ set -u
 MARKER_START="# >>> herdr-atuin-plugin (managed) >>>"
 MARKER_END="# <<< herdr-atuin-plugin (managed) <<<"
 
+# Every install writes a timestamped backup; keep only this many newest.
+BACKUP_KEEP=3
+
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/herdr"
 CONFIG="$CONFIG_DIR/config.toml"
 
@@ -107,6 +110,15 @@ mv "$TMP" "$CONFIG" 2>/dev/null || {
 print -r -- "herdr-atuin: bound prefix+a in $CONFIG"
 [ -n "$CONFLICT" ] && print -r -- "herdr-atuin: an existing prefix+a binding was commented out"
 [ -n "$BACKUP" ] && print -r -- "herdr-atuin: backup saved to $BACKUP"
+
+# Drop all but the newest BACKUP_KEEP backups. The (Nom) glob qualifiers mean
+# "no error if nothing matches, ordered by mtime, newest first".
+typeset -a stale
+stale=( "$CONFIG".bak-*(Nom) )
+if (( ${#stale} > BACKUP_KEEP )); then
+    rm -f -- "${stale[@]:$BACKUP_KEEP}" 2>/dev/null \
+        && print -r -- "herdr-atuin: pruned $(( ${#stale} - BACKUP_KEEP )) old backup(s), kept newest $BACKUP_KEEP"
+fi
 
 # Best effort -- the server may not be running during install, and build
 # commands do not get HERDR_BIN_PATH.

@@ -47,7 +47,8 @@ description = "Open Atuin history search"
 
 Details of that edit:
 
-- Your `config.toml` is backed up to `config.toml.bak-<timestamp>` first.
+- Your `config.toml` is backed up to `config.toml.bak-<timestamp>` first. Only
+  the 3 most recent backups are kept, so reinstalls don't pile them up.
 - **An existing `prefix+a` binding is commented out** so this one takes effect.
   The install output says so when it happens; recover it from the backup or by
   uncommenting.
