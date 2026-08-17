@@ -29,22 +29,36 @@ integration, but for herdr.
 herdr plugin install smanickam01/herdr-atuin-plugin
 ```
 
-Then add the keybinding to `~/.config/herdr/config.toml` — **this step is
-required**, see [why](#why-the-keybinding-lives-in-configtoml):
+That's it — `prefix+a` works immediately. The install step writes the keybinding
+into `~/.config/herdr/config.toml` for you and reloads herdr, because herdr
+[ignores keybindings declared in a plugin manifest](#why-the-keybinding-lives-in-configtoml).
+
+**What it writes to your config**, in a marked block appended at the end:
 
 ```toml
+# >>> herdr-atuin-plugin (managed) >>>
 [[keys.command]]
 key = "prefix+a"
 type = "plugin_action"
 command = "atuin.history-popup.shell-history"
 description = "Open Atuin history search"
+# <<< herdr-atuin-plugin (managed) <<<
 ```
 
-Apply it without restarting:
+Details of that edit:
 
-```sh
-herdr server reload-config
-```
+- Your `config.toml` is backed up to `config.toml.bak-<timestamp>` first.
+- **An existing `prefix+a` binding is commented out** so this one takes effect.
+  The install output says so when it happens; recover it from the backup or by
+  uncommenting.
+- Reinstalling rewrites the same marked block rather than adding a second one.
+- To use a different key, edit the block — but note a reinstall restores
+  `prefix+a`. To opt out permanently, delete the block and bind
+  `atuin.history-popup.shell-history` wherever you like.
+- Uninstalling the plugin does **not** remove the block; delete it by hand.
+
+Nothing else in your config is touched, and a failure here (unwritable config,
+etc.) reports and moves on rather than failing the install.
 
 ### Local development
 
@@ -56,6 +70,13 @@ herdr plugin link ./herdr-atuin-plugin
 `herdr plugin link` registers the plugin from that directory in place, skipping
 the `[[build]]` step — convenient while editing. Re-run it after manifest
 changes.
+
+Because `link` skips builds, the keybinding is not installed automatically. Run
+it yourself once:
+
+```sh
+zsh ./setup-keybinding.sh
+```
 
 ## Usage
 
@@ -152,6 +173,10 @@ So the binding has to live in the user's `config.toml`. Only the key itself
 does — placement and sizing stay in the plugin's `[[panes]]` entry, so this
 line does not need to change when the plugin does.
 
+`setup-keybinding.sh` writes it there from `[[build]]` during install, which is
+why installing is a single step. If herdr ever starts honoring manifest
+keybindings, that block becomes redundant rather than wrong.
+
 ## Troubleshooting
 
 The script logs to `$HERDR_PLUGIN_STATE_DIR/herdr-atuin.log`, typically:
@@ -165,7 +190,7 @@ A successful run logs `OK ran on <pane_id>: <command>` (Enter) or
 
 | Symptom | Check |
 |---|---|
-| `prefix+a` does nothing | Is the `config.toml` block above present? Run `herdr config check`, then `herdr server reload-config`. |
+| `prefix+a` does nothing | Is the managed block present in `~/.config/herdr/config.toml`? If you installed with `plugin link`, run `zsh ./setup-keybinding.sh`. Then `herdr config check` and `herdr server reload-config`. |
 | Popup opens, then closes instantly | `herdr-atuin: 'atuin' not found on PATH` — herdr runs plugin commands non-interactively, so `.zshrc` is not sourced. Ensure atuin is on the default PATH. |
 | Command copied but not inserted | Log shows `no target pane` or a `send-text` failure; check `herdr pane list`. |
 | Enter inserts but does not run | `enter_accept = true` missing from `~/.config/atuin/config.toml`, so atuin never emits the `__atuin_accept__:` prefix. |

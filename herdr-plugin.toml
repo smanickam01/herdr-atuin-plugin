@@ -1,9 +1,16 @@
 id = "atuin.history-popup"
 name = "Atuin history popup"
-version = "0.3.0"
+version = "0.4.0"
 min_herdr_version = "0.7.0"
 description = "Atuin history search helpers"
 platforms = [ "macos" ]
+
+# Herdr ignores [[keys.command]] declared in a plugin manifest, so the binding
+# is written into the user's config.toml at install time instead. Runs on
+# `plugin install` only -- `plugin link` skips build steps, so contributors add
+# the binding by hand (or run this script directly).
+[[build]]
+command = ["zsh", "setup-keybinding.sh"]
 
 # The popup itself. Declaring placement here means callers can open it with
 # `herdr plugin pane open --plugin atuin.history-popup --entrypoint history`
