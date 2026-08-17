@@ -2,15 +2,24 @@
 
 A [herdr](https://herdr.dev) plugin that opens [Atuin](https://atuin.sh)'s
 interactive shell history search in a herdr popup, then inserts the command you
-pick back into the pane you launched from and runs it — the same "press a key,
+pick back into the pane you launched from — the same "press a key,
 fuzzy-search history, hit enter" flow tmux users get from the Atuin tmux
 integration, but for herdr.
+
+| In the popup | Result |
+|---|---|
+| **Enter** | Command is inserted into your pane **and run** |
+| **Tab** | Command is inserted into your pane, **left at the prompt** to edit or run yourself |
+| **Esc** | Nothing happens |
 
 ## Requirements
 
 - [herdr](https://herdr.dev) >= 0.7.0 (developed against 0.8.0)
 - [atuin](https://atuin.sh) installed and initialized (`atuin init zsh` in your
-  `.zshrc`, with history imported)
+  `.zshrc`, with history imported). Developed against atuin 18.19.0.
+- `enter_accept = true` in `~/.config/atuin/config.toml` — required for the
+  Enter/Tab split described below. Without it, Tab and Enter behave identically
+  and everything is inserted without running.
 - macOS for the clipboard convenience copy (`pbcopy`); see [Platform
   support](#platform-support)
 
@@ -50,9 +59,10 @@ changes.
 
 ## Usage
 
-Press `prefix+a` in any pane. A popup opens with Atuin's interactive search;
-pick a command (or press Esc to cancel) and it is typed into the pane you came
-from and executed. The command is also copied to your clipboard.
+Press `prefix+a` in any pane. A popup opens with Atuin's interactive search.
+Select a command and accept it with **Enter** to insert and run it, or **Tab**
+to insert it without running so you can edit it first. Esc cancels. Either way
+the command is also copied to your clipboard.
 
 You can also trigger it without the keybinding:
 
@@ -86,7 +96,26 @@ prefix+a  →  [[actions]] shell-history  →  herdr plugin pane open
   snapshot's `focused_pane_id`, which keeps pointing at the underlying pane
   while a popup is up.
 - **`herdr-atuin.sh`** runs `atuin search -i`, then hands the result back with
-  `herdr pane send-text` + `herdr pane send-keys <pane> enter`.
+  `herdr pane send-text`, followed by `herdr pane send-keys <pane> enter` only
+  when the selection should run.
+
+### Telling Enter apart from Tab
+
+The script invokes atuin as `ATUIN_SHELL=zsh atuin search -i`. That env var puts
+atuin in shell-integration mode, where (with `enter_accept = true` in your atuin
+config) it prefixes the result with `__atuin_accept__:` if you accepted with
+Enter, and returns the bare command for Tab. Stripping that prefix is what
+decides whether the Enter keypress is sent:
+
+| Accept key | `ATUIN_SHELL` set | atuin stdout |
+|---|---|---|
+| Enter | yes | `__atuin_accept__:<command>` |
+| Enter | no | `<command>` |
+| Tab | either | `<command>` |
+
+Without `ATUIN_SHELL`, Enter and Tab are indistinguishable — atuin returns the
+same bare string for both, which is why the env var is set explicitly rather
+than relying on the ambient shell.
 
 ### Why not synthetic keystrokes?
 
@@ -131,13 +160,15 @@ The script logs to `$HERDR_PLUGIN_STATE_DIR/herdr-atuin.log`, typically:
 tail ~/.local/state/herdr/plugins/atuin.history-popup/herdr-atuin.log
 ```
 
-A successful run logs `OK sent to <pane_id>: <command>`.
+A successful run logs `OK ran on <pane_id>: <command>` (Enter) or
+`OK inserted on <pane_id> (tab, not run): <command>` (Tab).
 
 | Symptom | Check |
 |---|---|
 | `prefix+a` does nothing | Is the `config.toml` block above present? Run `herdr config check`, then `herdr server reload-config`. |
 | Popup opens, then closes instantly | `herdr-atuin: 'atuin' not found on PATH` — herdr runs plugin commands non-interactively, so `.zshrc` is not sourced. Ensure atuin is on the default PATH. |
 | Command copied but not inserted | Log shows `no target pane` or a `send-text` failure; check `herdr pane list`. |
+| Enter inserts but does not run | `enter_accept = true` missing from `~/.config/atuin/config.toml`, so atuin never emits the `__atuin_accept__:` prefix. |
 | Nothing in `herdr plugin log list` | The action never fired — the keybinding is not registered. See above. |
 
 ## Platform support

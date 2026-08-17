@@ -29,8 +29,20 @@ if [ -z "$TARGET_PANE" ]; then
     log "HERDR_ORIGIN_PANE_ID unset; fell back to focused pane '$TARGET_PANE'"
 fi
 
-SELECTED_CMD=$(atuin search -i) || exit 0
-[ -n "$SELECTED_CMD" ] || exit 0   # cancelled with Esc
+# ATUIN_SHELL=zsh puts atuin in shell-integration mode, where `enter_accept`
+# makes it prefix the result with __atuin_accept__: when the selection was
+# accepted with Enter. Tab returns the bare command. That prefix is the only
+# signal distinguishing "run it" from "just put it on my prompt".
+SELECTED_RAW=$(ATUIN_SHELL=zsh atuin search -i) || exit 0
+[ -n "$SELECTED_RAW" ] || exit 0   # cancelled with Esc
+
+if [[ "$SELECTED_RAW" == __atuin_accept__:* ]]; then
+    SELECTED_CMD="${SELECTED_RAW#__atuin_accept__:}"
+    RUN_IT=1
+else
+    SELECTED_CMD="$SELECTED_RAW"
+    RUN_IT=0
+fi
 
 # Copy to the clipboard as a convenience. Piping to pbcopy keeps quotes and
 # backslashes intact; interpolating into `osascript -e` would not.
@@ -45,7 +57,11 @@ fi
 
 "$HERDR" pane send-text "$TARGET_PANE" "$SELECTED_CMD" >/dev/null 2>&1 \
     || { log "ERROR send-text to $TARGET_PANE failed"; exit 1; }
-"$HERDR" pane send-keys "$TARGET_PANE" enter >/dev/null 2>&1 \
-    || log "WARN send-keys enter to $TARGET_PANE failed"
 
-log "OK sent to $TARGET_PANE: $SELECTED_CMD"
+if (( RUN_IT )); then
+    "$HERDR" pane send-keys "$TARGET_PANE" enter >/dev/null 2>&1 \
+        || log "WARN send-keys enter to $TARGET_PANE failed"
+    log "OK ran on $TARGET_PANE: $SELECTED_CMD"
+else
+    log "OK inserted on $TARGET_PANE (tab, not run): $SELECTED_CMD"
+fi
